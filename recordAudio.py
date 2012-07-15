@@ -1,56 +1,131 @@
+from multiprocessing import Process, Queue
 import numpy
-import pyaudio
+import os
+import pygame.mixer
 import sys
 
-import pygame
-import pygame.mixer
 
 sampleRate = 44100
-sampleFormat = pyaudio.paInt16
 recordingChannels = 2
-RECORD_SECONDS = 60
-
-pygame.mixer.pre_init( channels = 1, frequency = sampleRate, size = -16 ) # must be signed on OS X
-pygame.init()
-
-p = pyaudio.PyAudio()
-
-print 'PyAudio Devices:'
-for di in range(p.get_device_count()):
-	print ' ', di, p.get_device_info_by_index(di)['name']
-
-print
-print 'Using default input device:', p.get_default_input_device_info()['name']
-
-stream = p.open(format = sampleFormat,
-                channels = recordingChannels,
-                rate = sampleRate,
-                input = True)
-
-print "* recording"
-
-data = stream.read( RECORD_SECONDS * sampleRate )
-
-print "* done"
-
-stream.stop_stream()
-stream.close()
-p.terminate()
 
 
-if 1 == recordingChannels:
-	sampleType = numpy.int16
-elif recordingChannels > 1:
-	# column-vector of individual channels' samples. I.e. for stereo, each element of the sample array is
-	# itself a 2x1 array.
-	sampleType = numpy.dtype( (numpy.int16, (recordingChannels, 1)) )
+#=============================================================================
+def info( msg ):
+    print os.getpid(), msg
+
+#=============================================================================
+def recordingProcessMain( commandQueue ):
+	UNINITIALIZED = 1
+	INITIALIZED = 2
+	RECORDING = 3
 	
-interleavedSamples = numpy.frombuffer( data, dtype = sampleType )
-leftSamples = numpy.ndarray.flatten( interleavedSamples[:,0] )
-rightSamples = numpy.ndarray.flatten( interleavedSamples[:,1] )
+	state = UNINITIALIZED
+	stream = None
 
+	info( 'Recording sub-process started.' )
 
-sound = pygame.sndarray.make_sound( leftSamples )
-sound.play(-1)
-pygame.time.delay(1000 * RECORD_SECONDS)
-sound.stop()
+	import pyaudio
+
+	sampleFormat = pyaudio.paInt16
+	p = pyaudio.PyAudio()
+	
+	state = INITIALIZED
+
+	info( 'Waiting for commands.' )
+
+	while True:
+		cmd = commandQueue.get()	# Block until we get a command.
+		info( "Got command: '" + cmd + "'" )
+		if cmd == 'r':
+			if state < INITIALIZED:
+				info( 'Command ignored: not initialized.' )
+				continue
+			elif state == RECORDING:
+				info( 'Command ignored: already recording.' )
+				continue
+				
+			stream = p.open(format = sampleFormat,
+							channels = recordingChannels,
+							rate = sampleRate,
+							input = True)
+		
+			state = RECORDING
+			info( '* Started recording.' )
+			
+			data = ''
+			while state == RECORDING:
+				numFramesAvailable = stream.get_read_available()
+				if numFramesAvailable:
+					data += stream.read( numFramesAvailable )
+					
+				# Annoyed that I need to use exceptions here.
+				# Will it drop audio frames?
+				try:
+					cmd = commandQueue.get_nowait()
+					if cmd == 'r':
+						stream.stop_stream()
+						stream.close()
+						info( '* Stopped recording.' )
+						state = INITIALIZED
+						
+				except:
+					pass
+	p.terminate()
+#
+#	
+#	if 1 == recordingChannels:
+#		sampleType = numpy.int16
+#	elif recordingChannels > 1:
+#		# column-vector of individual channels' samples. I.e. for stereo, each element of the sample array is
+#		# itself a 2x1 array.
+#		sampleType = numpy.dtype( (numpy.int16, (recordingChannels, 1)) )
+#	
+#	interleavedSamples = numpy.frombuffer( data, dtype = sampleType )
+#	leftSamples = numpy.ndarray.flatten( interleavedSamples[:,0] )
+#	rightSamples = numpy.ndarray.flatten( interleavedSamples[:,1] )
+
+#=============================================================================
+if __name__ == '__main__':
+	info( 'Main process start.' )
+
+	# Need to start recording sub-process (but not actually start recording)
+	# before initializing pygame.mixer. Otherwise, recording process can't
+	# get any recording devices.
+	
+	commandQ = Queue()
+	
+	info( 'Starting recording sub-process.' )
+	recordingProcess = Process( target = recordingProcessMain,
+							    args = ( commandQ, ))
+	recordingProcess.start()
+
+	pygame.mixer.pre_init( channels = 1, frequency = sampleRate, size = -16 )
+	pygame.init()
+	info( 'PyGame initialized.' )
+	
+	pygame.display.set_mode( (800, 600),
+							 pygame.DOUBLEBUF |
+							 pygame.OPENGL |
+							 pygame.RESIZABLE )
+	
+	while True:
+		event = pygame.event.wait()
+		if event.type == pygame.QUIT:
+			break
+		if event.type == pygame.KEYDOWN:
+			if event.key == pygame.K_ESCAPE or event.unicode == u'q':
+				break
+			elif event.unicode == u'r':
+				commandQ.put('r')
+				
+	recordingProcess.terminate()
+
+	
+#	
+#	sound = pygame.sndarray.make_sound( leftSamples )
+#	sound.play(-1)
+#	pygame.time.delay(1000 * RECORD_SECONDS)
+#	sound.stop()
+#
+	
+	
