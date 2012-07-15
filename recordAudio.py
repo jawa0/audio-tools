@@ -1,4 +1,5 @@
-from multiprocessing import Process, Queue
+import math
+from multiprocessing import Process, Queue, cpu_count
 import numpy
 import os
 import pygame.mixer
@@ -14,7 +15,7 @@ def info( msg ):
     print os.getpid(), msg
 
 #=============================================================================
-def recordingProcessMain( commandQueue ):
+def recordingProcessMain( commandQueue, outputQueue ):
 	UNINITIALIZED = 1
 	INITIALIZED = 2
 	RECORDING = 3
@@ -70,33 +71,27 @@ def recordingProcessMain( commandQueue ):
 						
 				except:
 					pass
+			
+			print len(data)
+			outputQueue.put( data )
+
 	p.terminate()
-#
-#	
-#	if 1 == recordingChannels:
-#		sampleType = numpy.int16
-#	elif recordingChannels > 1:
-#		# column-vector of individual channels' samples. I.e. for stereo, each element of the sample array is
-#		# itself a 2x1 array.
-#		sampleType = numpy.dtype( (numpy.int16, (recordingChannels, 1)) )
-#	
-#	interleavedSamples = numpy.frombuffer( data, dtype = sampleType )
-#	leftSamples = numpy.ndarray.flatten( interleavedSamples[:,0] )
-#	rightSamples = numpy.ndarray.flatten( interleavedSamples[:,1] )
 
 #=============================================================================
 if __name__ == '__main__':
 	info( 'Main process start.' )
-
+	info( 'Detected %d cpu(s).' % (cpu_count()) )
+	
 	# Need to start recording sub-process (but not actually start recording)
 	# before initializing pygame.mixer. Otherwise, recording process can't
 	# get any recording devices.
 	
 	commandQ = Queue()
+	recordingQ = Queue()
 	
 	info( 'Starting recording sub-process.' )
 	recordingProcess = Process( target = recordingProcessMain,
-							    args = ( commandQ, ))
+							    args = ( commandQ, recordingQ))
 	recordingProcess.start()
 
 	pygame.mixer.pre_init( channels = 1, frequency = sampleRate, size = -16 )
@@ -108,6 +103,7 @@ if __name__ == '__main__':
 							 pygame.OPENGL |
 							 pygame.RESIZABLE )
 	
+	samples = None
 	while True:
 		event = pygame.event.wait()
 		if event.type == pygame.QUIT:
@@ -115,17 +111,42 @@ if __name__ == '__main__':
 		if event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_ESCAPE or event.unicode == u'q':
 				break
-			elif event.unicode == u'r':
+			elif event.unicode == u'r':	# toggle recording
 				commandQ.put('r')
+			elif event.unicode == u'p': # play recording
+				try:
+					recordedData = recordingQ.get_nowait()
+					print len(recordedData)
+				except:
+					if not samples:
+						info( 'No completed recordings to play.' )
+						continue
+					
+				# Finished recording. Make the data nice.
+				if 1 == recordingChannels:
+					sampleType = numpy.int16
+				elif recordingChannels > 1:
+					# column-vector of individual channels' samples. I.e. for stereo,
+					# each element of the sample array is itself a 2x1 array.
+					sampleType = numpy.dtype( (numpy.int16, (recordingChannels, 1)) )
+				
+				interleavedSamples = numpy.frombuffer( recordedData, dtype = sampleType )
+				del recordedData
+				
+				leftSamples = numpy.ndarray.flatten( interleavedSamples[:,0] )
+				#			rightSamples = numpy.ndarray.flatten( interleavedSamples[:,1] )
+				
+				samples = leftSamples
+				sound = pygame.sndarray.make_sound( samples )
+				sound.play(-1)
+				pygame.time.delay(1000 * int(math.ceil(len(samples) / float(sampleRate))))
+				sound.stop()
+				
 				
 	recordingProcess.terminate()
 
 	
 #	
-#	sound = pygame.sndarray.make_sound( leftSamples )
-#	sound.play(-1)
-#	pygame.time.delay(1000 * RECORD_SECONDS)
-#	sound.stop()
 #
 	
 	
