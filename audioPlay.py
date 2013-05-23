@@ -18,6 +18,20 @@ def sinSamples(frequency, seconds):
 soundSeconds = 4
 samples = sinSamples(440, soundSeconds)
 
+# Fade in at start, and out at end. Basically, we want to multiply by another function whose range is [0.0 to 1.0],
+# that is shaped so that our samples are forced to be 0 at start and end. Non-zero start and end samples could
+# lead to audible "clicking". See http://en.wikipedia.org/wiki/Window_function
+# @note @note @note: We're using a Hanning window (with an "n"), not a Hamming window (with an "m"). The Hamming
+# window doesnt' go to zero at beginning and end, just around 0.1.
+samples = samples * numpy.hanning(len(samples))
+
+# Pad with zeros at start and end.
+padSeconds = 0.2
+padWidth = int(padSeconds * samplingFrequency)
+samples = numpy.pad(samples, (padWidth, padWidth), 'constant', constant_values=(0.0,))	# Requires NumPy 1.7+
+
+totalSeconds = int(math.ceil(soundSeconds + 2 * padSeconds))
+
 # Pre-initialize the PyGame Mixer before the general PyGame init, so we can set the expected sample size.
 # We need to set the sample size, because samples need to be signed-ints on Mac OS X. To denote this, we
 # pass in a negative value for the sample size.
@@ -36,8 +50,8 @@ samples = INT16_LARGEST * samples
 samples = samples.astype( numpy.int16 )
 
 sound = pygame.sndarray.make_sound( samples )
-sound.play(-1)
+sound.play()
 
 MILLISECONDS_PER_SECOND = 1000
-pygame.time.delay(soundSeconds * MILLISECONDS_PER_SECOND)
-sound.stop()
+pygame.time.delay(totalSeconds * MILLISECONDS_PER_SECOND)
+# sound.stop()
