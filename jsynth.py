@@ -55,6 +55,14 @@ def synthSin(frequency, durationSeconds, samplingFrequency):
 	return samples
 
 
+def smooshStartAndEnd(samples):
+	"""Given a 1D NumPy array of samples, apply a windowing function (envelope) that
+	crushes the first and last samples to 0. This will mean the sound samples fade in and
+	then out, but will prevent clicking when transitioning from one sound to another."""
+
+	return samples * numpy.hanning(len(samples))
+
+
 def waveWrite(filename, fs, samples):
 	"""Write the given samples to a WAV file named by filename.
 	Samples are assumed to be in the range -1.0 to 1.0."""
@@ -94,7 +102,7 @@ if __name__=='__main__':
 			continue
 		(note, duration) = tuple(string.split(line))
 		
-		samples = numpy.append(samples, synthSin( pitch(note), float(duration), fs ))
+		samples = numpy.append(samples, smooshStartAndEnd(synthSin( pitch(note), float(duration), fs )))
 		
 	waveWrite( outfile, fs, samples )
 	
