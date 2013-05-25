@@ -1,8 +1,9 @@
-import wave
 import math
+import numpy
 import string
 import struct
 import sys
+import wave
 
 # USAGE: python jsynth.py song.txt out.wav
 
@@ -42,15 +43,17 @@ def pitch( noteName ):
 	"""Return the frequency in Hz for the named note. E.g. pitch('A4') return 440.0"""
 	offsetFromA4 = semisDifference( 'A4', noteName )
 	return pitchFromOffsetToA4( offsetFromA4 )
+
 	
-def synthSin(f, durationSeconds, fs):
-	"""Generate a sine wave with frequency f, of duration seconds, where the sampling
-	rate (sample frequency) is fs. The output is a list of floats with values in the range
-	-1.0 to 1.0"""
-	
-	nsamples = int( math.ceil(durationSeconds * fs) )
-	samples = [math.sin( 2.0 * f * math.pi * k / fs ) for k in xrange(nsamples)]
+def synthSin(frequency, durationSeconds, samplingFrequency):
+	"""Returns a discrete-time sine-wave with frequency f, as a NumPy array of signed float 
+	samples in the range -1.0 to 1.0."""
+
+	numSamples = int( math.ceil(durationSeconds * samplingFrequency) )
+	xs = (2.0 * frequency * math.pi / samplingFrequency) * numpy.arange( numSamples )
+	samples = numpy.sin( xs )
 	return samples
+
 
 def waveWrite(filename, fs, samples):
 	"""Write the given samples to a WAV file named by filename.
@@ -80,7 +83,7 @@ if __name__=='__main__':
 	songfile = sys.argv[1]
 	outfile = sys.argv[2]
 	
-	samples = []
+	samples = numpy.array([], dtype = numpy.float)
 	fs = 44100
 	t = 0.0
 	
@@ -91,7 +94,7 @@ if __name__=='__main__':
 			continue
 		(note, duration) = tuple(string.split(line))
 		
-		samples += synthSin( pitch(note), float(duration), fs )
+		samples = numpy.append(samples, synthSin( pitch(note), float(duration), fs ))
 		
 	waveWrite( outfile, fs, samples )
 	
