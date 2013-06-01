@@ -76,14 +76,8 @@ def main():
 	print 'min amplitude =', numpy.min(A), 'max amplitude =', numpy.max(A)
 
 	# Need to do some flipping of the array...
-	# 1) When we're talking about arrays, the first index is rows, increasing downward and the
-	# second index is columns, increasing to the right.
-	# The way the Image module converts arrays to images, though, the first dimension becomes
-	# the x-axis, and the second becomes the y-axis (increasing downwards). So we need to
-	# transpose the array.
-	#
-	# 2) In a spectrogram, we want to show higher pitches (frequencies) above lower ones, even though
-	# y is decreasing downwards, so we also need to flip vertically.
+	# In a spectrogram, we want to show higher pitches (frequencies) above lower ones, even though
+	# y is increasing downwards, so we need to flip vertically.
 
 	im = Image.fromarray(numpy.flipud(A))
 	print im.size
