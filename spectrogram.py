@@ -7,7 +7,7 @@ import sys
 
 
 def main():
-	wavFilename = sys.argv[1]
+	wavFilename = sys.argv[2]
 	samplingFrequency, samples = wavfile.read(wavFilename)
 	
 	# print samples.shape
@@ -21,7 +21,9 @@ def main():
 
 	# print normalizedSamples.shape
 
-	windowDurationSeconds = 0.1
+	windowDurationSeconds = float(sys.argv[1])
+	print 'Window (bucket) duration:', 1000 * windowDurationSeconds, 'milliseconds'
+
 	samplesPerWindow = int(math.floor(windowDurationSeconds * samplingFrequency))
 	numUniqueFrequencySamples = 1 + samplesPerWindow // 2
 
