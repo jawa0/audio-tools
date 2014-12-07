@@ -15,7 +15,9 @@ def semisOffsetFromC0(noteName):
 	"""Given a 2 or 3 character long note name like "C3" or "E#4" or "Db3", return
 	an integer denoting the distance in semitones from C0."""
 	
-	nameToSemitone  = {'C':0, 'C#':1, 'Db':1, 'D':2, 'Eb':3, 'D#':3, 'E':4, 'F':5, 'F#':6, 'Gb':6, 'G':7, 'G#':8, 'Ab':8, 'A':9, 'A#':10, 'Bb':10, 'B':11}
+	nameToSemitone  = {'C':0, 'C#':1, 'Db':1, 'D':2, 'Eb':3, 'D#':3, 'E':4,
+                           'F':5, 'F#':6, 'Gb':6, 'G':7, 'G#':8, 'Ab':8, 'A':9,
+                           'A#':10, 'Bb':10, 'B':11}
 	
 	if len(noteName) == 2:
 		semi = nameToSemitone[noteName[0]]
@@ -55,6 +57,15 @@ def synthSin(frequency, durationSeconds, samplingFrequency):
 	return samples
 
 
+def synthGaussianWhiteNoise(numSamples, standardDeviation):
+        """Clamps samples to range [-1.0, 1.0] since gaussian value is potentially unbounded."""
+        samples = numpy.random.normal(0.0, standardDeviation, numSamples)
+#        maxValue = numpy.max(samples)
+#        minValue = numpy.min(samples)
+#        maxExtent = max(abs(maxValue), abs(minValue))
+#        return (1.0 / maxExtent) * samples
+        return numpy.clip(samples, -1.0, 1.0);
+        
 def smooshStartAndEnd(samples):
 	"""Given a 1D NumPy array of samples, apply a windowing function (envelope) that
 	crushes the first and last samples to 0. This will mean the sound samples fade in and
@@ -94,6 +105,9 @@ if __name__=='__main__':
 	samples = numpy.array([], dtype = numpy.float)
 	fs = 44100
 	t = 0.0
+
+        # How to generate Gaussian White Noise (GWN)
+#	samples = numpy.append(samples, synthGaussianWhiteNoise(fs * 4.0, 1.0/3))
 	
 	lines = open(songfile, 'r').readlines()
 	for rawline in lines:
