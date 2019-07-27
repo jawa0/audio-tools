@@ -12,7 +12,7 @@ recordingChannels = 2
 
 #=============================================================================
 def info( msg ):
-    print os.getpid(), msg
+    print(os.getpid(), msg)
 
 #=============================================================================
 def recordingProcessMain( commandQueue, outputQueue ):
@@ -53,7 +53,7 @@ def recordingProcessMain( commandQueue, outputQueue ):
 			state = RECORDING
 			info( '* Started recording.' )
 			
-			data = ''
+			data = b''
 			while state == RECORDING:
 				numFramesAvailable = stream.get_read_available()
 				if numFramesAvailable:
@@ -72,7 +72,7 @@ def recordingProcessMain( commandQueue, outputQueue ):
 				except:
 					pass
 			
-			print len(data)
+			print(len(data))
 			outputQueue.put( data )
 
 	p.terminate()
@@ -116,7 +116,7 @@ if __name__ == '__main__':
 			elif event.unicode == u'p': # play recording
 				try:
 					recordedData = recordingQ.get_nowait()
-					print len(recordedData)
+					print(len(recordedData))
 				except:
 					if not samples:
 						info( 'No completed recordings to play.' )
@@ -148,5 +148,3 @@ if __name__ == '__main__':
 	
 #	
 #
-	
-	
